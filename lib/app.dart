@@ -237,6 +237,28 @@ class _DashboardPageState extends State<DashboardPage> {
     }
   }
 
+  Future<void> _confirmDeleteExpense(Expense expense) async {
+    final confirmed = await showDialog<bool>(
+      context: context,
+      builder: (context) => AlertDialog(
+        title: const Text('Eliminar gasto'),
+        content: Text(
+            '¿Quieres eliminar “${expense.title}”? Esta acción no se puede deshacer.'),
+        actions: [
+          TextButton(
+            onPressed: () => Navigator.pop(context, false),
+            child: const Text('Cancelar'),
+          ),
+          FilledButton(
+            onPressed: () => Navigator.pop(context, true),
+            child: const Text('Eliminar'),
+          ),
+        ],
+      ),
+    );
+    if (confirmed == true) await _deleteExpense(expense);
+  }
+
   Future<void> _showExpenseForm([Expense? expense]) async {
     final saved = await showModalBottomSheet<Expense>(
       context: context,
@@ -565,7 +587,7 @@ class _DashboardPageState extends State<DashboardPage> {
                             expense: expense,
                             category: category,
                             onEdit: () => _showExpenseForm(expense),
-                            onDelete: () => _deleteExpense(expense),
+                            onDelete: () => _confirmDeleteExpense(expense),
                           );
                         }),
                     ],
