@@ -64,7 +64,7 @@ La imagen del ticket se cifra con AES-GCM antes de guardarse en el directorio pr
 
 ## Repositorio y ramas
 
-Repositorio público: <https://github.com/xGodlight/gastos_flutter>. La rama estable es `main`; `develop` y `feature/login` están publicados. El PR de `feature/login` a `develop` y su autorevisión documentada se enlazarán aquí cuando se cree el PR.
+Repositorio público: <https://github.com/xGodlight/gastos_flutter>. La rama estable es `main`; `develop` y `feature/login` están publicados. PR de `feature/login` a `develop`: <https://github.com/xGodlight/gastos_flutter/pull/1>. La autorevisión está en [`docs/revision-feature-login.md`](./docs/revision-feature-login.md).
 
 El repositorio partió de un único commit inicial. Los commits adicionales deben reflejar cambios reales, revisables y separados por funcionalidad; no se inventa historial ni se usan commits vacíos para satisfacer un conteo.
 
