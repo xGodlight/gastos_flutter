@@ -13,9 +13,15 @@ class FirebaseConfig {
   static const projectId = String.fromEnvironment('FB_PROJECT_ID');
 
   static bool get isConfigured =>
-      apiKey.isNotEmpty && appId.isNotEmpty && senderId.isNotEmpty && projectId.isNotEmpty;
+      apiKey.isNotEmpty &&
+      appId.isNotEmpty &&
+      senderId.isNotEmpty &&
+      projectId.isNotEmpty;
   static bool get hasAnyValue =>
-      apiKey.isNotEmpty || appId.isNotEmpty || senderId.isNotEmpty || projectId.isNotEmpty;
+      apiKey.isNotEmpty ||
+      appId.isNotEmpty ||
+      senderId.isNotEmpty ||
+      projectId.isNotEmpty;
 
   static Future<void> initialize() async {
     if (!hasAnyValue) return;
@@ -40,12 +46,14 @@ class CloudService {
   final FlutterSecureStorage _secureStorage;
 
   bool get isConfigured => FirebaseConfig.isConfigured;
-  User? get currentUser => isConfigured ? FirebaseAuth.instance.currentUser : null;
+  User? get currentUser =>
+      isConfigured ? FirebaseAuth.instance.currentUser : null;
 
   Future<bool> claimLocalData(String userId) async {
     final owner = await _secureStorage.read(key: _ownerKey);
     if (owner != null && owner != userId) return false;
-    if (owner == null) await _secureStorage.write(key: _ownerKey, value: userId);
+    if (owner == null)
+      await _secureStorage.write(key: _ownerKey, value: userId);
     return true;
   }
 
@@ -61,6 +69,9 @@ class CloudService {
         password: password,
       );
 
+  Future<void> sendPasswordReset(String email) =>
+      FirebaseAuth.instance.sendPasswordResetEmail(email: email.trim());
+
   Future<void> signOut() => FirebaseAuth.instance.signOut();
 
   Future<void> sync(String userId, ExpenseSnapshot snapshot) async {
@@ -69,19 +80,19 @@ class CloudService {
     final expenses = <String, Map<String, dynamic>>{
       for (final expense in snapshot.expenses)
         expense.id: {
-        'title': expense.title,
-        'amount': expense.amount,
-        'categoryId': expense.categoryId,
-        'date': expense.date.toIso8601String(),
-        'notes': expense.notes,
+          'title': expense.title,
+          'amount': expense.amount,
+          'categoryId': expense.categoryId,
+          'date': expense.date.toIso8601String(),
+          'notes': expense.notes,
         },
     };
     final budgets = <String, Map<String, dynamic>>{
       for (final budget in snapshot.budgets)
         budget.id: {
-        'amount': budget.amount,
-        'categoryId': budget.categoryId,
-        'period': budget.period,
+          'amount': budget.amount,
+          'categoryId': budget.categoryId,
+          'period': budget.period,
         },
     };
     await _syncCollection(userPath.collection('expenses'), expenses);
@@ -121,13 +132,16 @@ class CloudService {
       final categoryId = data['categoryId'] as String? ?? 'other';
       final notes = data['notes'] as String? ?? '';
       if (title == null || title.trim().isEmpty || title.length > 80) {
-        throw FormatException('Descripción remota inválida para el gasto ${doc.id}.');
+        throw FormatException(
+            'Descripción remota inválida para el gasto ${doc.id}.');
       }
       if (amount is! num || !amount.isFinite || amount <= 0) {
-        throw FormatException('Importe remoto inválido para el gasto ${doc.id}.');
+        throw FormatException(
+            'Importe remoto inválido para el gasto ${doc.id}.');
       }
       if (date == null || notes.length > 300) {
-        throw FormatException('Fecha o notas remotas inválidas para el gasto ${doc.id}.');
+        throw FormatException(
+            'Fecha o notas remotas inválidas para el gasto ${doc.id}.');
       }
       if (!Category.defaults.any((category) => category.id == categoryId)) {
         throw FormatException('Categoría remota desconocida: $categoryId');
@@ -146,7 +160,8 @@ class CloudService {
       final amount = data['amount'];
       final categoryId = data['categoryId'] as String?;
       if (amount is! num || !amount.isFinite || amount <= 0) {
-        throw FormatException('Importe remoto inválido para el presupuesto ${doc.id}.');
+        throw FormatException(
+            'Importe remoto inválido para el presupuesto ${doc.id}.');
       }
       if (categoryId != null &&
           !Category.defaults.any((category) => category.id == categoryId)) {
