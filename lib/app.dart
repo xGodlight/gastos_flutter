@@ -85,6 +85,8 @@ class _DashboardPageState extends State<DashboardPage> {
   bool _loading = true;
   bool _syncing = false;
   bool _cloudReady = false;
+  String _expensePeriod = 'all';
+  String _expenseQuery = '';
   String? _error;
   User? _user;
   Stream<User?>? _authChanges;
@@ -499,6 +501,15 @@ class _DashboardPageState extends State<DashboardPage> {
     final categoryNames = {for (final item in _categories) item.id: item};
     final totalSpent =
         _snapshot.expenses.fold<double>(0, (sum, item) => sum + item.amount);
+    final monthStart = DateTime(now.year, now.month);
+    final visibleExpenses = _snapshot.expenses.where((expense) {
+      final matchesPeriod =
+          _expensePeriod == 'all' || !expense.date.isBefore(monthStart);
+      final matchesSearch = expense.title
+          .toLowerCase()
+          .contains(_expenseQuery.trim().toLowerCase());
+      return matchesPeriod && matchesSearch;
+    }).toList();
     return Scaffold(
       appBar: AppBar(
         title: const Text('Mis gastos',
@@ -578,10 +589,43 @@ class _DashboardPageState extends State<DashboardPage> {
                             fontSize: 18, fontWeight: FontWeight.w800),
                       ),
                       const SizedBox(height: 8),
-                      if (_snapshot.expenses.isEmpty)
-                        const _EmptyState()
+                      Row(
+                        children: [
+                          const Text('Periodo:'),
+                          const SizedBox(width: 8),
+                          DropdownButton<String>(
+                            value: _expensePeriod,
+                            items: const [
+                              DropdownMenuItem(
+                                  value: 'all', child: Text('Todos')),
+                              DropdownMenuItem(
+                                  value: 'month', child: Text('Este mes')),
+                            ],
+                            onChanged: (value) {
+                              if (value != null) {
+                                setState(() => _expensePeriod = value);
+                              }
+                            },
+                          ),
+                        ],
+                      ),
+                      TextField(
+                        decoration: const InputDecoration(
+                          hintText: 'Buscar gasto',
+                          prefixIcon: Icon(Icons.search),
+                        ),
+                        onChanged: (value) =>
+                            setState(() => _expenseQuery = value),
+                      ),
+                      const SizedBox(height: 8),
+                      if (visibleExpenses.isEmpty)
+                        _EmptyState(
+                          message: _snapshot.expenses.isEmpty
+                              ? 'Aún no hay gastos. Registra uno para empezar a organizarte.'
+                              : 'No hay gastos que coincidan con esta búsqueda y periodo.',
+                        )
                       else
-                        ..._snapshot.expenses.map((expense) {
+                        ...visibleExpenses.map((expense) {
                           final category = categoryNames[expense.categoryId];
                           return _ExpenseTile(
                             expense: expense,
@@ -836,16 +880,17 @@ class _ExpenseTile extends StatelessWidget {
 }
 
 class _EmptyState extends StatelessWidget {
-  const _EmptyState();
+  const _EmptyState({required this.message});
+
+  final String message;
 
   @override
-  Widget build(BuildContext context) => const Card(
+  Widget build(BuildContext context) => Card(
         color: Colors.white,
         elevation: 0,
         child: Padding(
-          padding: EdgeInsets.all(22),
-          child: Text(
-              'Aún no hay gastos. Registra uno para empezar a organizarte.'),
+          padding: const EdgeInsets.all(22),
+          child: Text(message),
         ),
       );
 }
