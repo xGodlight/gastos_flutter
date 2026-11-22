@@ -80,8 +80,9 @@ El resumen semanal usa gastos de los últimos siete días. La tabla local se enc
 ## Componentes y flujo
 
 - `ExpenseRepository` coordina SQLite, cifrado y archivos privados.
-- `CloudService` autentica con Firebase Auth y replica snapshots del usuario en Firestore.
+- `CloudService` autentica con Firebase Auth (inicio, alta y recuperación de contraseña) y replica snapshots del usuario en Firestore.
 - La pantalla conserva operación local sin configuración remota; al iniciar sesión descarga la copia remota y sincroniza.
+- Los errores de autenticación se presentan en español y no revelan respuestas internas del proveedor ni existencia de cuentas.
 - Las eliminaciones sin red se guardan como tombstones locales y se confirman al completar una sincronización posterior.
 - `BudgetNotifications` programa una notificación local cuando un gasto hace que el presupuesto semanal llegue al 80%.
 - `image_picker`, `fl_chart`, `intl`, `sqflite`, `cryptography` y Firebase son dependencias externas.
