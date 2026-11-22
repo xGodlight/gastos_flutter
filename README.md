@@ -83,6 +83,4 @@ Pull requests:
 
 Los cambios están publicados en sus ramas y los PR permanecen abiertos; no se han mezclado automáticamente.
 
-La arquitectura, el modelo de datos y los controles de seguridad se describen en [`docs/reporte-tecnico.md`](./docs/reporte-tecnico.md) y en el PDF adjunto.
-
-PDF: [`docs/reporte-tecnico.pdf`](./docs/reporte-tecnico.pdf).
+El reporte técnico en Markdown —con diagrama de clases, modelo de datos y mecanismos de seguridad— está en [`docs/reporte-tecnico.md`](./docs/reporte-tecnico.md).
