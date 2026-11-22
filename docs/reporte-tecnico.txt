@@ -83,7 +83,10 @@ El resumen semanal calcula el gasto de los ultimos siete dias.
 
  ExpenseRepository: CRUD SQLite, relaciones y ficheros privados.
  SecureCodec: AES-GCM y llave de almacenamiento seguro.
- CloudService: Firebase Auth y sincronizacion de Firestore por UID.
+ CloudService: Firebase Auth (inicio, alta y recuperacion de contrasena)
+ y sincronizacion de Firestore por UID.
+ Los errores de autenticacion se muestran en espanol, sin filtrar
+ mensajes internos del proveedor o existencia de cuentas.
  BudgetNotifications: agenda el aviso local al detectar el 80%.
  image_picker: captura la foto del ticket.
  fl_chart: grafico de distribucion por categoria.

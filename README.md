@@ -62,16 +62,12 @@ La imagen del ticket se cifra con AES-GCM antes de guardarse en el directorio pr
 
 `test/models_test.dart` cubre validaciones de importes, descripción y correo. En esta máquina el SDK Flutter no estaba instalado, por lo que `flutter analyze` y `flutter test` no se pudieron ejecutar durante la preparación del proyecto.
 
-## Entrega GitHub
+## Repositorio y ramas
 
-Este workspace no incluye un remoto ni autenticación GitHub. Por ello, no se ha publicado un repositorio, creado un PR ni inventado un historial de commits. Para completar la rúbrica desde una cuenta con permisos:
+Repositorio público: <https://github.com/xGodlight/gastos_flutter>. La rama estable es `main`; `develop` y `feature/login` están publicados. El PR de `feature/login` a `develop` y su autorevisión documentada se enlazarán aquí cuando se cree el PR.
 
-1. Crea un repositorio público y enlázalo a esta carpeta.
-2. Usa `main` como rama estable y crea `develop`.
-3. Implementa y publica `feature/login` y otra rama `feature/*`; abre un PR de `feature/login` a `develop` y añade la revisión documentada.
-4. Crea una rama `hotfix/*` para un arreglo acotado y vuelve a integrarla.
-5. Registra al menos 15 commits que correspondan a cambios reales, revisables y separados por funcionalidad; no fabriques commits vacíos para cumplir el conteo.
+El repositorio partió de un único commit inicial. Los commits adicionales deben reflejar cambios reales, revisables y separados por funcionalidad; no se inventa historial ni se usan commits vacíos para satisfacer un conteo.
 
-La arquitectura, el modelo de datos y los controles de seguridad se describen en [`docs/reporte-tecnico.md`](./docs/reporte-tecnico.md) y en el PDF adjunto.
+La arquitectura, el modelo de datos y los controles de seguridad se describen en [`docs/reporte-tecnico.md`](./docs/reporte-tecnico.md) y en el PDF adjunto. La autorevisión de autenticación está en [`docs/revision-feature-login.md`](./docs/revision-feature-login.md).
 
 PDF: [`docs/reporte-tecnico.pdf`](./docs/reporte-tecnico.pdf).
