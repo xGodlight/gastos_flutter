@@ -283,10 +283,17 @@ class _DashboardPageState extends State<DashboardPage> {
   }
 
   Future<void> _showBudgetForm() async {
-    final current = _snapshot.budgets.firstWhere(
-      (item) => item.categoryId == null,
-      orElse: () => Budget(id: widget.repository.newId(), amount: 0),
-    );
+    const allCategories = '__all__';
+    Budget budgetFor(String selected) {
+      final categoryId = selected == allCategories ? null : selected;
+      return _snapshot.budgets.firstWhere(
+        (item) => item.categoryId == categoryId,
+        orElse: () => Budget(id: widget.repository.newId(), amount: 0),
+      );
+    }
+
+    var selectedCategory = allCategories;
+    var current = budgetFor(selectedCategory);
     final controller = TextEditingController(
       text: current.amount > 0 ? current.amount.toStringAsFixed(2) : '',
     );
@@ -298,19 +305,52 @@ class _DashboardPageState extends State<DashboardPage> {
           title: const Text('Presupuesto semanal'),
           content: Form(
             key: formKey,
-            child: TextFormField(
-              controller: controller,
-              keyboardType:
-                  const TextInputType.numberWithOptions(decimal: true),
-              decoration: const InputDecoration(labelText: 'Límite semanal'),
-              validator: (input) {
-                try {
-                  parseExpenseAmount(input ?? '');
-                  return null;
-                } on FormatException catch (error) {
-                  return error.message;
-                }
-              },
+            child: Column(
+              mainAxisSize: MainAxisSize.min,
+              children: [
+                DropdownButtonFormField<String>(
+                  initialValue: selectedCategory,
+                  decoration: const InputDecoration(labelText: 'Aplicar a'),
+                  items: [
+                    const DropdownMenuItem(
+                      value: allCategories,
+                      child: Text('Todas las categorías'),
+                    ),
+                    ..._categories.map(
+                      (category) => DropdownMenuItem(
+                        value: category.id,
+                        child: Text(category.name),
+                      ),
+                    ),
+                  ],
+                  onChanged: (value) {
+                    if (value == null) return;
+                    setDialogState(() {
+                      selectedCategory = value;
+                      current = budgetFor(value);
+                      controller.text = current.amount > 0
+                          ? current.amount.toStringAsFixed(2)
+                          : '';
+                    });
+                  },
+                ),
+                const SizedBox(height: 12),
+                TextFormField(
+                  controller: controller,
+                  keyboardType:
+                      const TextInputType.numberWithOptions(decimal: true),
+                  decoration:
+                      const InputDecoration(labelText: 'Límite semanal'),
+                  validator: (input) {
+                    try {
+                      parseExpenseAmount(input ?? '');
+                      return null;
+                    } on FormatException catch (error) {
+                      return error.message;
+                    }
+                  },
+                ),
+              ],
             ),
           ),
           actions: [
@@ -336,7 +376,7 @@ class _DashboardPageState extends State<DashboardPage> {
                     ),
                   );
                   if (confirmed == true && context.mounted) {
-                    Navigator.pop(context, const Budget(id: '', amount: 0));
+                    Navigator.pop(context, Budget(id: current.id, amount: 0));
                   }
                 },
                 child: const Text('Eliminar'),
@@ -351,8 +391,13 @@ class _DashboardPageState extends State<DashboardPage> {
                   Navigator.pop(
                     context,
                     Budget(
-                      id: current.id,
+                      id: current.amount > 0
+                          ? current.id
+                          : widget.repository.newId(),
                       amount: parseExpenseAmount(controller.text),
+                      categoryId: selectedCategory == allCategories
+                          ? null
+                          : selectedCategory,
                       period: 'weekly',
                     ),
                   );
@@ -367,7 +412,7 @@ class _DashboardPageState extends State<DashboardPage> {
     if (result == null) return;
     try {
       if (result.amount == 0) {
-        await widget.repository.deleteBudget(current.id);
+        await widget.repository.deleteBudget(result.id);
       } else {
         await widget.repository.saveBudget(result);
       }
