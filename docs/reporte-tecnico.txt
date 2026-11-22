@@ -94,6 +94,11 @@ El resumen semanal calcula el gasto de los ultimos siete dias.
  los snapshots local y remoto por ID y sincroniza. Los fallos de red
  se muestran en pantalla y los datos locales se conservan. La copia
  remota no se modifica hasta completar su lectura inicial. Las
+
+ Se admiten presupuestos semanales globales y por categoria. El
+historial ofrece filtro por mes y busqueda por descripcion. Los
+comprobantes se vuelven a visualizar descifrados en memoria con zoom;
+no se guarda una copia temporal en texto claro. Las
  eliminaciones sin red se registran localmente hasta su confirmacion.
 
 6. VERIFICACION Y LIMITACIONES

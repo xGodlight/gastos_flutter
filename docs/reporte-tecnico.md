@@ -85,6 +85,8 @@ El resumen semanal usa gastos de los últimos siete días. La tabla local se enc
 - Las eliminaciones sin red se guardan como tombstones locales y se confirman al completar una sincronización posterior.
 - `BudgetNotifications` programa una notificación local cuando un gasto hace que el presupuesto semanal llegue al 80%.
 - `image_picker`, `fl_chart`, `intl`, `sqflite`, `cryptography` y Firebase son dependencias externas.
+- Se admiten presupuestos semanales generales y por categoría; el historial puede filtrarse por mes y buscarse por descripción.
+- Los tickets se pueden volver a visualizar descifrados en memoria, con zoom interactivo; no se guarda una copia temporal en texto claro.
 
 ## Verificación y límites
 
