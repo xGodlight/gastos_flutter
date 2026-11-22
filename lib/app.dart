@@ -215,18 +215,26 @@ class _DashboardPageState extends State<DashboardPage> {
   Future<void> _saveExpense(Expense expense) async {
     await widget.repository.saveExpense(expense);
     await _load();
-    final budget = _snapshot.budgets.firstWhere(
-      (item) => item.categoryId == null,
-      orElse: () => const Budget(id: '', amount: 0),
-    );
-    final spent = _snapshot.expenses
-        .where((item) =>
-            item.date.isAfter(DateTime.now().subtract(const Duration(days: 7))))
-        .fold<double>(0, (total, item) => total + item.amount);
-    await widget.notifications.updateThresholdAlert(
-      exceededThreshold: budget.amount > 0 && spent / budget.amount >= 0.8,
-    );
+    await _updateBudgetAlert();
     await _syncLocalToCloud();
+  }
+
+  Future<void> _updateBudgetAlert() async {
+    final weekStart = DateTime.now().subtract(const Duration(days: 7));
+    final overThreshold = _snapshot.budgets
+        .where((budget) => budget.period == 'weekly')
+        .any((budget) {
+      final spent = _snapshot.expenses
+          .where((expense) =>
+              expense.date.isAfter(weekStart) &&
+              (budget.categoryId == null ||
+                  expense.categoryId == budget.categoryId))
+          .fold<double>(0, (total, expense) => total + expense.amount);
+      return spent / budget.amount >= 0.8;
+    });
+    await widget.notifications.updateThresholdAlert(
+      exceededThreshold: overThreshold,
+    );
   }
 
   Future<void> _deleteExpense(Expense expense) async {
@@ -417,13 +425,7 @@ class _DashboardPageState extends State<DashboardPage> {
         await widget.repository.saveBudget(result);
       }
       await _load();
-      final spent = _snapshot.expenses
-          .where((item) => item.date
-              .isAfter(DateTime.now().subtract(const Duration(days: 7))))
-          .fold<double>(0, (total, item) => total + item.amount);
-      await widget.notifications.updateThresholdAlert(
-        exceededThreshold: result.amount > 0 && spent / result.amount >= 0.8,
-      );
+      await _updateBudgetAlert();
       await _syncLocalToCloud();
     } catch (error) {
       _showMessage('No se pudo guardar el presupuesto: $error');
@@ -544,6 +546,8 @@ class _DashboardPageState extends State<DashboardPage> {
     final weeklySpent =
         weekExpenses.fold<double>(0, (sum, item) => sum + item.amount);
     final categoryNames = {for (final item in _categories) item.id: item};
+    final categoryBudgets = _snapshot.budgets.where(
+        (budget) => budget.period == 'weekly' && budget.categoryId != null);
     final totalSpent =
         _snapshot.expenses.fold<double>(0, (sum, item) => sum + item.amount);
     final visibleExpenses = filterExpenses(
@@ -603,10 +607,26 @@ class _DashboardPageState extends State<DashboardPage> {
                           total: totalSpent, count: _snapshot.expenses.length),
                       const SizedBox(height: 16),
                       _BudgetCard(
+                        label: 'Presupuesto semanal',
                         spent: weeklySpent,
                         budget: weeklyBudget.amount,
                         onEdit: _showBudgetForm,
                       ),
+                      ...categoryBudgets.map((budget) {
+                        final category = categoryNames[budget.categoryId];
+                        final spent = weekExpenses
+                            .where((expense) =>
+                                expense.categoryId == budget.categoryId)
+                            .fold<double>(
+                                0, (total, expense) => total + expense.amount);
+                        return _BudgetCard(
+                          label:
+                              'Presupuesto · ${category?.name ?? 'Categoría'}',
+                          spent: spent,
+                          budget: budget.amount,
+                          onEdit: _showBudgetForm,
+                        );
+                      }),
                       const SizedBox(height: 24),
                       Row(
                         children: [
@@ -720,11 +740,13 @@ class _SummaryCard extends StatelessWidget {
 
 class _BudgetCard extends StatelessWidget {
   const _BudgetCard({
+    required this.label,
     required this.spent,
     required this.budget,
     required this.onEdit,
   });
 
+  final String label;
   final double spent;
   final double budget;
   final VoidCallback onEdit;
@@ -743,9 +765,9 @@ class _BudgetCard extends StatelessWidget {
           children: [
             Row(
               children: [
-                const Expanded(
-                  child: Text('Presupuesto semanal',
-                      style: TextStyle(fontWeight: FontWeight.w700)),
+                Expanded(
+                  child: Text(label,
+                      style: const TextStyle(fontWeight: FontWeight.w700)),
                 ),
                 IconButton(
                   tooltip: 'Editar presupuesto',
