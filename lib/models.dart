@@ -12,12 +12,36 @@ class Category {
   final int colorValue;
 
   static const defaults = <Category>[
-    Category(id: 'food', name: 'Comida', iconCodePoint: 0xe25a, colorValue: 0xfff97316),
-    Category(id: 'transport', name: 'Transporte', iconCodePoint: 0xe1d7, colorValue: 0xff3b82f6),
-    Category(id: 'home', name: 'Hogar', iconCodePoint: 0xe318, colorValue: 0xff8b5cf6),
-    Category(id: 'health', name: 'Salud', iconCodePoint: 0xe3f3, colorValue: 0xff14b8a6),
-    Category(id: 'leisure', name: 'Ocio', iconCodePoint: 0xe40f, colorValue: 0xffec4899),
-    Category(id: 'other', name: 'Otros', iconCodePoint: 0xe5d3, colorValue: 0xff64748b),
+    Category(
+        id: 'food',
+        name: 'Comida',
+        iconCodePoint: 0xe25a,
+        colorValue: 0xfff97316),
+    Category(
+        id: 'transport',
+        name: 'Transporte',
+        iconCodePoint: 0xe1d7,
+        colorValue: 0xff3b82f6),
+    Category(
+        id: 'home',
+        name: 'Hogar',
+        iconCodePoint: 0xe318,
+        colorValue: 0xff8b5cf6),
+    Category(
+        id: 'health',
+        name: 'Salud',
+        iconCodePoint: 0xe3f3,
+        colorValue: 0xff14b8a6),
+    Category(
+        id: 'leisure',
+        name: 'Ocio',
+        iconCodePoint: 0xe40f,
+        colorValue: 0xffec4899),
+    Category(
+        id: 'other',
+        name: 'Otros',
+        iconCodePoint: 0xe5d3,
+        colorValue: 0xff64748b),
   ];
 }
 
@@ -102,6 +126,23 @@ String? validateEmail(String? value) {
 }
 
 String? validatePassword(String? value) {
-  if ((value ?? '').length < 8) return 'La contraseña debe tener al menos 8 caracteres.';
+  if ((value ?? '').length < 8)
+    return 'La contraseña debe tener al menos 8 caracteres.';
   return null;
+}
+
+List<Expense> filterExpenses(
+  List<Expense> expenses, {
+  required DateTime now,
+  required bool currentMonthOnly,
+  String query = '',
+}) {
+  final monthStart = DateTime(now.year, now.month);
+  final normalizedQuery = query.trim().toLowerCase();
+  return expenses.where((expense) {
+    final matchesMonth =
+        !currentMonthOnly || !expense.date.isBefore(monthStart);
+    final matchesQuery = expense.title.toLowerCase().contains(normalizedQuery);
+    return matchesMonth && matchesQuery;
+  }).toList();
 }

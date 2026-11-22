@@ -501,15 +501,12 @@ class _DashboardPageState extends State<DashboardPage> {
     final categoryNames = {for (final item in _categories) item.id: item};
     final totalSpent =
         _snapshot.expenses.fold<double>(0, (sum, item) => sum + item.amount);
-    final monthStart = DateTime(now.year, now.month);
-    final visibleExpenses = _snapshot.expenses.where((expense) {
-      final matchesPeriod =
-          _expensePeriod == 'all' || !expense.date.isBefore(monthStart);
-      final matchesSearch = expense.title
-          .toLowerCase()
-          .contains(_expenseQuery.trim().toLowerCase());
-      return matchesPeriod && matchesSearch;
-    }).toList();
+    final visibleExpenses = filterExpenses(
+      _snapshot.expenses,
+      now: now,
+      currentMonthOnly: _expensePeriod == 'month',
+      query: _expenseQuery,
+    );
     return Scaffold(
       appBar: AppBar(
         title: const Text('Mis gastos',
