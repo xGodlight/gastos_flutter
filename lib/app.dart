@@ -130,6 +130,15 @@ class _DashboardPageState extends State<DashboardPage> {
     }
   }
 
+  Future<void> _refreshData() async {
+    final user = _user;
+    if (user == null) {
+      await _load();
+    } else {
+      await _syncFromCloud(user.uid);
+    }
+  }
+
   Future<void> _syncFromCloud(String userId) async {
     setState(() => _syncing = true);
     try {
@@ -502,7 +511,7 @@ class _DashboardPageState extends State<DashboardPage> {
           : _error != null && _snapshot.expenses.isEmpty && _categories.isEmpty
               ? Center(child: Text(_error!))
               : RefreshIndicator(
-                  onRefresh: _load,
+                  onRefresh: _refreshData,
                   child: ListView(
                     padding: const EdgeInsets.fromLTRB(20, 8, 20, 100),
                     children: [
