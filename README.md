@@ -2,6 +2,13 @@
 
 Aplicación móvil en español para registrar gastos, organizar categorías, consultar un gráfico y controlar un presupuesto semanal. Funciona sin cuenta en el dispositivo; Firebase Auth y Firestore añaden inicio de sesión y sincronización cuando se proporcionan credenciales.
 
+<img width="523" height="1005" alt="preview 5" src="https://github.com/user-attachments/assets/7226c91e-c653-4876-82ff-377dee0523fc" />
+<img width="523" height="1005" alt="preview 4" src="https://github.com/user-attachments/assets/d66bc3ac-7346-4682-806e-7b2b5a9db025" />
+<img width="523" height="1005" alt="preview 3" src="https://github.com/user-attachments/assets/2f44b7d1-47d8-4242-b3a1-5574e876942a" />
+<img width="523" height="1005" alt="preview 2" src="https://github.com/user-attachments/assets/f50d45df-478c-48ff-84f1-04eb5abf8282" />
+<img width="523" height="1005" alt="preview 1" src="https://github.com/user-attachments/assets/db134c44-31d6-4ec5-bc21-c4ae71ab4af4" />
+
+
 ## Requisitos
 
 - Flutter 3.24 o superior y Dart 3.3 o superior.
@@ -61,5 +68,8 @@ La imagen del ticket se cifra con AES-GCM antes de guardarse en el directorio pr
 ## Pruebas
 
 `test/models_test.dart` cubre validaciones de importes, descripción y correo. En esta máquina el SDK Flutter no estaba instalado, por lo que `flutter analyze` y `flutter test` no se pudieron ejecutar durante la preparación del proyecto.
+
+
+
 
 
