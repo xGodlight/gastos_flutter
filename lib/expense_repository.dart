@@ -24,7 +24,8 @@ class ExpenseRepository {
   Database? _database;
 
   Future<void> initialize() async {
-    final databasePath = p.join(await getDatabasesPath(), 'personal_expenses.db');
+    final databasePath =
+        p.join(await getDatabasesPath(), 'personal_expenses.db');
     _database = await openDatabase(
       databasePath,
       version: 1,
@@ -83,7 +84,8 @@ class ExpenseRepository {
 
   Database get _db {
     final database = _database;
-    if (database == null) throw StateError('La base local no está inicializada.');
+    if (database == null)
+      throw StateError('La base local no está inicializada.');
     return database;
   }
 
@@ -106,7 +108,8 @@ class ExpenseRepository {
       expenses.add(Expense(
         id: row['id']! as String,
         title: await _codec.decryptText(row['title_enc']! as String),
-        amount: double.parse(await _codec.decryptText(row['amount_enc']! as String)),
+        amount: double.parse(
+            await _codec.decryptText(row['amount_enc']! as String)),
         categoryId: row['category_id']! as String,
         date: DateTime.parse(row['spent_at']! as String),
         notes: await _codec.decryptText(row['notes_enc']! as String),
@@ -119,7 +122,8 @@ class ExpenseRepository {
     for (final row in budgetRows) {
       budgets.add(Budget(
         id: row['id']! as String,
-        amount: double.parse(await _codec.decryptText(row['amount_enc']! as String)),
+        amount: double.parse(
+            await _codec.decryptText(row['amount_enc']! as String)),
         categoryId: row['category_id'] as String?,
         period: row['period']! as String,
       ));
@@ -128,7 +132,9 @@ class ExpenseRepository {
   }
 
   Future<void> saveExpense(Expense expense) async {
-    if (expense.title.trim().isEmpty || !expense.amount.isFinite || expense.amount <= 0) {
+    if (expense.title.trim().isEmpty ||
+        !expense.amount.isFinite ||
+        expense.amount <= 0) {
       throw const FormatException('El gasto no tiene datos válidos.');
     }
     final oldRows = await _db.query(
@@ -158,7 +164,8 @@ class ExpenseRepository {
         whereArgs: [expense.id, 'expenses'],
       );
     });
-    final oldPath = oldRows.isEmpty ? null : oldRows.first['receipt_path'] as String?;
+    final oldPath =
+        oldRows.isEmpty ? null : oldRows.first['receipt_path'] as String?;
     if (oldPath != null && oldPath != expense.receiptPath) {
       await _removeReceipt(oldPath);
     }
@@ -168,7 +175,8 @@ class ExpenseRepository {
     final directory = await getApplicationDocumentsDirectory();
     final receiptDirectory = Directory(p.join(directory.path, 'receipts'));
     await receiptDirectory.create(recursive: true);
-    final file = File(p.join(receiptDirectory.path, '$expenseId-${_uuid.v4()}.enc'));
+    final file =
+        File(p.join(receiptDirectory.path, '$expenseId-${_uuid.v4()}.enc'));
     await file.writeAsBytes(await _codec.encryptBytes(imageBytes), flush: true);
     return p.join('receipts', p.basename(file.path));
   }
@@ -188,7 +196,8 @@ class ExpenseRepository {
       );
       await transaction.delete('expenses', where: 'id = ?', whereArgs: [id]);
     });
-    final receiptPath = rows.isEmpty ? null : rows.first['receipt_path'] as String?;
+    final receiptPath =
+        rows.isEmpty ? null : rows.first['receipt_path'] as String?;
     if (receiptPath != null) await _removeReceipt(receiptPath);
   }
 
@@ -212,16 +221,34 @@ class ExpenseRepository {
     if (!budget.amount.isFinite || budget.amount <= 0) {
       throw const FormatException('El presupuesto debe ser mayor que cero.');
     }
-    await _db.insert(
-      'budgets',
-      {
-        'id': budget.id,
-        'amount_enc': await _codec.encryptText(budget.amount.toString()),
-        'category_id': budget.categoryId,
-        'period': budget.period,
-      },
-      conflictAlgorithm: ConflictAlgorithm.replace,
-    );
+    await _db.transaction((transaction) async {
+      await transaction.insert(
+        'budgets',
+        {
+          'id': budget.id,
+          'amount_enc': await _codec.encryptText(budget.amount.toString()),
+          'category_id': budget.categoryId,
+          'period': budget.period,
+        },
+        conflictAlgorithm: ConflictAlgorithm.replace,
+      );
+      await transaction.delete(
+        'sync_deletions',
+        where: 'id = ? AND entity = ?',
+        whereArgs: [budget.id, 'budgets'],
+      );
+    });
+  }
+
+  Future<void> deleteBudget(String id) async {
+    await _db.transaction((transaction) async {
+      await transaction.insert(
+        'sync_deletions',
+        {'id': id, 'entity': 'budgets'},
+        conflictAlgorithm: ConflictAlgorithm.replace,
+      );
+      await transaction.delete('budgets', where: 'id = ?', whereArgs: [id]);
+    });
   }
 
   Future<void> replaceRemoteData(ExpenseSnapshot snapshot) async {
@@ -260,7 +287,8 @@ class ExpenseRepository {
     return deletions;
   }
 
-  Future<void> clearPendingDeletions(Map<String, Set<String>> acknowledged) async {
+  Future<void> clearPendingDeletions(
+      Map<String, Set<String>> acknowledged) async {
     await _db.transaction((transaction) async {
       for (final entry in acknowledged.entries) {
         for (final id in entry.value) {

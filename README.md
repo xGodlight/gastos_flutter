@@ -52,6 +52,7 @@ La imagen del ticket se cifra con AES-GCM antes de guardarse en el directorio pr
 ## Funcionalidad
 
 - CRUD de gastos, seis categorías iniciales y presupuesto semanal.
+- Límites semanales globales o por categoría, alertas al 80%, búsqueda y filtro mensual.
 - Base SQLite local con relaciones gasto→categoría y presupuesto→categoría opcional.
 - Cifrado AES-256-GCM de importes, descripciones, notas, presupuestos y archivos de tickets. La llave se guarda con `flutter_secure_storage` en Keychain/Keystore.
 - Captura con cámara (`image_picker`), gráfico (`fl_chart`) y formato de moneda/fecha (`intl`).
@@ -60,18 +61,28 @@ La imagen del ticket se cifra con AES-GCM antes de guardarse en el directorio pr
 
 ## Pruebas
 
-`test/models_test.dart` cubre validaciones de importes, descripción y correo. En esta máquina el SDK Flutter no estaba instalado, por lo que `flutter analyze` y `flutter test` no se pudieron ejecutar durante la preparación del proyecto.
+`test/models_test.dart` cubre validaciones de importes, descripción, correo, contraseña y filtros de historial. Verificado con Flutter 3.50.1: `flutter analyze` sin problemas y `flutter test` aprobado.
 
-## Entrega GitHub
+## Repositorio y ramas
 
-Este workspace no incluye un remoto ni autenticación GitHub. Por ello, no se ha publicado un repositorio, creado un PR ni inventado un historial de commits. Para completar la rúbrica desde una cuenta con permisos:
+Repositorio público: <https://github.com/xGodlight/gastos_flutter>.
 
-1. Crea un repositorio público y enlázalo a esta carpeta.
-2. Usa `main` como rama estable y crea `develop`.
-3. Implementa y publica `feature/login` y otra rama `feature/*`; abre un PR de `feature/login` a `develop` y añade la revisión documentada.
-4. Crea una rama `hotfix/*` para un arreglo acotado y vuelve a integrarla.
-5. Registra al menos 15 commits que correspondan a cambios reales, revisables y separados por funcionalidad; no fabriques commits vacíos para cumplir el conteo.
+- `main`: rama estable.
+- `develop`: rama de integración.
+- `feature/login`: recuperación segura de contraseña y manejo de sesión.
+- `feature/receipt-preview`: vista descifrada de tickets.
+- `feature/expense-management`: gestión de límites, alertas y búsqueda.
+- `hotfix/sqlite-sync-migration`: migración segura de SQLite.
 
-La arquitectura, el modelo de datos y los controles de seguridad se describen en [`docs/reporte-tecnico.md`](./docs/reporte-tecnico.md) y en el PDF adjunto.
+Pull requests:
 
-PDF: [`docs/reporte-tecnico.pdf`](./docs/reporte-tecnico.pdf).
+- [`feature/login` → `develop` (#1)](https://github.com/xGodlight/gastos_flutter/pull/1), con autorevisión documentada en [`docs/revision-feature-login.md`](./docs/revision-feature-login.md).
+- [`feature/receipt-preview` → `develop` (#2)](https://github.com/xGodlight/gastos_flutter/pull/2).
+- [`hotfix/sqlite-sync-migration` → `main` (#3)](https://github.com/xGodlight/gastos_flutter/pull/3).
+- [`feature/expense-management` → `develop` (#4)](https://github.com/xGodlight/gastos_flutter/pull/4).
+
+Los cambios están publicados en sus ramas y los PR permanecen abiertos; no se han mezclado automáticamente.
+
+El reporte técnico en Markdown —con diagrama de clases, modelo de datos y mecanismos de seguridad— está en [`docs/reporte-tecnico.md`](./docs/reporte-tecnico.md).
+
+Para empaquetar iOS, preparar la ficha de tienda y revisar clasificación de edad, consulta la [guía de publicación en App Store](./docs/guia-publicacion-appstore.md).

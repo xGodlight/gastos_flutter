@@ -19,6 +19,46 @@ void main() {
       expect(validateExpenseTitle('Supermercado'), isNull);
       expect(validateEmail('no-es-correo'), isNotNull);
       expect(validateEmail('persona@ejemplo.com'), isNull);
+      expect(validatePassword('short'), isNotNull);
+      expect(validatePassword('12345678'), isNull);
+    });
+
+    test('filtra por mes y búsqueda sin distinguir mayúsculas', () {
+      final expenses = [
+        Expense(
+          id: 'current',
+          title: 'Supermercado',
+          amount: 25,
+          categoryId: 'food',
+          date: DateTime(2026, 11, 12),
+        ),
+        Expense(
+          id: 'previous',
+          title: 'supermercado antiguo',
+          amount: 10,
+          categoryId: 'food',
+          date: DateTime(2026, 10, 31),
+        ),
+      ];
+
+      expect(
+        filterExpenses(
+          expenses,
+          now: DateTime(2026, 11, 21),
+          currentMonthOnly: true,
+          query: 'SUPER',
+        ).map((expense) => expense.id),
+        ['current'],
+      );
+      expect(
+        filterExpenses(
+          expenses,
+          now: DateTime(2026, 11, 21),
+          currentMonthOnly: false,
+          query: 'super',
+        ),
+        hasLength(2),
+      );
     });
   });
 }

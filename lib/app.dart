@@ -17,7 +17,8 @@ import 'models.dart';
 const _ink = Color(0xff16251f);
 const _green = Color(0xff14804a);
 const _canvas = Color(0xfff4f7f4);
-final _currency = NumberFormat.currency(locale: 'es_MX', symbol: '\$', decimalDigits: 2);
+final _currency =
+    NumberFormat.currency(locale: 'es_MX', symbol: '\$', decimalDigits: 2);
 
 class ExpenseApp extends StatelessWidget {
   const ExpenseApp({
@@ -84,6 +85,8 @@ class _DashboardPageState extends State<DashboardPage> {
   bool _loading = true;
   bool _syncing = false;
   bool _cloudReady = false;
+  String _expensePeriod = 'all';
+  String _expenseQuery = '';
   String? _error;
   User? _user;
   Stream<User?>? _authChanges;
@@ -129,6 +132,15 @@ class _DashboardPageState extends State<DashboardPage> {
     }
   }
 
+  Future<void> _refreshData() async {
+    final user = _user;
+    if (user == null) {
+      await _load();
+    } else {
+      await _syncFromCloud(user.uid);
+    }
+  }
+
   Future<void> _syncFromCloud(String userId) async {
     setState(() => _syncing = true);
     try {
@@ -147,7 +159,8 @@ class _DashboardPageState extends State<DashboardPage> {
       };
       for (final expense in local.expenses) {
         mergedExpenses[expense.id] = expense.copyWith(
-          receiptPath: expense.receiptPath ?? mergedExpenses[expense.id]?.receiptPath,
+          receiptPath:
+              expense.receiptPath ?? mergedExpenses[expense.id]?.receiptPath,
         );
       }
       final mergedBudgets = <String, Budget>{
@@ -191,7 +204,9 @@ class _DashboardPageState extends State<DashboardPage> {
       );
       if (mounted) setState(() => _error = null);
     } catch (error) {
-      if (mounted) setState(() => _error = 'Guardado local; sincronización pendiente: $error');
+      if (mounted)
+        setState(
+            () => _error = 'Guardado local; sincronización pendiente: $error');
     } finally {
       if (mounted) setState(() => _syncing = false);
     }
@@ -200,17 +215,26 @@ class _DashboardPageState extends State<DashboardPage> {
   Future<void> _saveExpense(Expense expense) async {
     await widget.repository.saveExpense(expense);
     await _load();
-    final budget = _snapshot.budgets.firstWhere(
-      (item) => item.categoryId == null,
-      orElse: () => const Budget(id: '', amount: 0),
-    );
-    final spent = _snapshot.expenses
-        .where((item) => item.date.isAfter(DateTime.now().subtract(const Duration(days: 7))))
-        .fold<double>(0, (total, item) => total + item.amount);
-    await widget.notifications.updateThresholdAlert(
-      exceededThreshold: budget.amount > 0 && spent / budget.amount >= 0.8,
-    );
+    await _updateBudgetAlert();
     await _syncLocalToCloud();
+  }
+
+  Future<void> _updateBudgetAlert() async {
+    final weekStart = DateTime.now().subtract(const Duration(days: 7));
+    final overThreshold = _snapshot.budgets
+        .where((budget) => budget.period == 'weekly')
+        .any((budget) {
+      final spent = _snapshot.expenses
+          .where((expense) =>
+              expense.date.isAfter(weekStart) &&
+              (budget.categoryId == null ||
+                  expense.categoryId == budget.categoryId))
+          .fold<double>(0, (total, expense) => total + expense.amount);
+      return spent / budget.amount >= 0.8;
+    });
+    await widget.notifications.updateThresholdAlert(
+      exceededThreshold: overThreshold,
+    );
   }
 
   Future<void> _deleteExpense(Expense expense) async {
@@ -221,6 +245,28 @@ class _DashboardPageState extends State<DashboardPage> {
     } catch (error) {
       _showMessage('No se pudo eliminar el gasto: $error');
     }
+  }
+
+  Future<void> _confirmDeleteExpense(Expense expense) async {
+    final confirmed = await showDialog<bool>(
+      context: context,
+      builder: (context) => AlertDialog(
+        title: const Text('Eliminar gasto'),
+        content: Text(
+            '¿Quieres eliminar “${expense.title}”? Esta acción no se puede deshacer.'),
+        actions: [
+          TextButton(
+            onPressed: () => Navigator.pop(context, false),
+            child: const Text('Cancelar'),
+          ),
+          FilledButton(
+            onPressed: () => Navigator.pop(context, true),
+            child: const Text('Eliminar'),
+          ),
+        ],
+      ),
+    );
+    if (confirmed == true) await _deleteExpense(expense);
   }
 
   Future<void> _showExpenseForm([Expense? expense]) async {
@@ -245,59 +291,141 @@ class _DashboardPageState extends State<DashboardPage> {
   }
 
   Future<void> _showBudgetForm() async {
-    final current = _snapshot.budgets.firstWhere(
-      (item) => item.categoryId == null,
-      orElse: () => Budget(id: widget.repository.newId(), amount: 0),
-    );
+    const allCategories = '__all__';
+    Budget budgetFor(String selected) {
+      final categoryId = selected == allCategories ? null : selected;
+      return _snapshot.budgets.firstWhere(
+        (item) => item.categoryId == categoryId,
+        orElse: () => Budget(id: widget.repository.newId(), amount: 0),
+      );
+    }
+
+    var selectedCategory = allCategories;
+    var current = budgetFor(selectedCategory);
     final controller = TextEditingController(
       text: current.amount > 0 ? current.amount.toStringAsFixed(2) : '',
     );
     final formKey = GlobalKey<FormState>();
-    final value = await showDialog<double>(
+    final result = await showDialog<Budget>(
       context: context,
-      builder: (context) => AlertDialog(
-        title: const Text('Presupuesto semanal'),
-        content: Form(
-          key: formKey,
-          child: TextFormField(
-            controller: controller,
-            keyboardType: const TextInputType.numberWithOptions(decimal: true),
-            decoration: const InputDecoration(labelText: 'Límite semanal'),
-            validator: (input) {
-              try {
-                parseExpenseAmount(input ?? '');
-                return null;
-              } on FormatException catch (error) {
-                return error.message;
-              }
-            },
+      builder: (context) => StatefulBuilder(
+        builder: (context, setDialogState) => AlertDialog(
+          title: const Text('Presupuesto semanal'),
+          content: Form(
+            key: formKey,
+            child: Column(
+              mainAxisSize: MainAxisSize.min,
+              children: [
+                DropdownButtonFormField<String>(
+                  initialValue: selectedCategory,
+                  decoration: const InputDecoration(labelText: 'Aplicar a'),
+                  items: [
+                    const DropdownMenuItem(
+                      value: allCategories,
+                      child: Text('Todas las categorías'),
+                    ),
+                    ..._categories.map(
+                      (category) => DropdownMenuItem(
+                        value: category.id,
+                        child: Text(category.name),
+                      ),
+                    ),
+                  ],
+                  onChanged: (value) {
+                    if (value == null) return;
+                    setDialogState(() {
+                      selectedCategory = value;
+                      current = budgetFor(value);
+                      controller.text = current.amount > 0
+                          ? current.amount.toStringAsFixed(2)
+                          : '';
+                    });
+                  },
+                ),
+                const SizedBox(height: 12),
+                TextFormField(
+                  controller: controller,
+                  keyboardType:
+                      const TextInputType.numberWithOptions(decimal: true),
+                  decoration:
+                      const InputDecoration(labelText: 'Límite semanal'),
+                  validator: (input) {
+                    try {
+                      parseExpenseAmount(input ?? '');
+                      return null;
+                    } on FormatException catch (error) {
+                      return error.message;
+                    }
+                  },
+                ),
+              ],
+            ),
           ),
+          actions: [
+            if (current.amount > 0)
+              TextButton(
+                onPressed: () async {
+                  final confirmed = await showDialog<bool>(
+                    context: context,
+                    builder: (context) => AlertDialog(
+                      title: const Text('Eliminar presupuesto'),
+                      content: const Text(
+                          '¿Quieres quitar el límite semanal actual?'),
+                      actions: [
+                        TextButton(
+                          onPressed: () => Navigator.pop(context, false),
+                          child: const Text('Cancelar'),
+                        ),
+                        FilledButton(
+                          onPressed: () => Navigator.pop(context, true),
+                          child: const Text('Eliminar'),
+                        ),
+                      ],
+                    ),
+                  );
+                  if (confirmed == true && context.mounted) {
+                    Navigator.pop(context, Budget(id: current.id, amount: 0));
+                  }
+                },
+                child: const Text('Eliminar'),
+              ),
+            TextButton(
+              onPressed: () => Navigator.pop(context),
+              child: const Text('Cancelar'),
+            ),
+            FilledButton(
+              onPressed: () {
+                if (formKey.currentState!.validate()) {
+                  Navigator.pop(
+                    context,
+                    Budget(
+                      id: current.amount > 0
+                          ? current.id
+                          : widget.repository.newId(),
+                      amount: parseExpenseAmount(controller.text),
+                      categoryId: selectedCategory == allCategories
+                          ? null
+                          : selectedCategory,
+                      period: 'weekly',
+                    ),
+                  );
+                }
+              },
+              child: const Text('Guardar'),
+            ),
+          ],
         ),
-        actions: [
-          TextButton(onPressed: () => Navigator.pop(context), child: const Text('Cancelar')),
-          FilledButton(
-            onPressed: () {
-              if (formKey.currentState!.validate()) {
-                Navigator.pop(context, parseExpenseAmount(controller.text));
-              }
-            },
-            child: const Text('Guardar'),
-          ),
-        ],
       ),
     );
-    if (value == null) return;
+    if (result == null) return;
     try {
-      await widget.repository.saveBudget(
-        Budget(id: current.id, amount: value, period: 'weekly'),
-      );
+      if (result.amount == 0) {
+        await widget.repository.deleteBudget(result.id);
+      } else {
+        await widget.repository.saveBudget(result);
+      }
       await _load();
-      final spent = _snapshot.expenses
-          .where((item) => item.date.isAfter(DateTime.now().subtract(const Duration(days: 7))))
-          .fold<double>(0, (total, item) => total + item.amount);
-      await widget.notifications.updateThresholdAlert(
-        exceededThreshold: spent / value >= 0.8,
-      );
+      await _updateBudgetAlert();
       await _syncLocalToCloud();
     } catch (error) {
       _showMessage('No se pudo guardar el presupuesto: $error');
@@ -310,7 +438,8 @@ class _DashboardPageState extends State<DashboardPage> {
       return;
     }
     if (!widget.cloud.isConfigured) {
-      _showMessage('Configura Firebase para habilitar inicio de sesión y sincronización.');
+      _showMessage(
+          'Configura Firebase para habilitar inicio de sesión y sincronización.');
       return;
     }
     final emailController = TextEditingController();
@@ -343,15 +472,19 @@ class _DashboardPageState extends State<DashboardPage> {
                 Align(
                   alignment: Alignment.centerRight,
                   child: TextButton(
-                    onPressed: () => setDialogState(() => createAccount = !createAccount),
-                    child: Text(createAccount ? 'Ya tengo cuenta' : 'Crear cuenta'),
+                    onPressed: () =>
+                        setDialogState(() => createAccount = !createAccount),
+                    child: Text(
+                        createAccount ? 'Ya tengo cuenta' : 'Crear cuenta'),
                   ),
                 ),
               ],
             ),
           ),
           actions: [
-            TextButton(onPressed: () => Navigator.pop(context), child: const Text('Cancelar')),
+            TextButton(
+                onPressed: () => Navigator.pop(context),
+                child: const Text('Cancelar')),
             FilledButton(
               onPressed: () async {
                 if (!key.currentState!.validate()) return;
@@ -371,13 +504,16 @@ class _DashboardPageState extends State<DashboardPage> {
                 } on FirebaseAuthException catch (error) {
                   if (context.mounted) {
                     ScaffoldMessenger.of(context).showSnackBar(
-                      SnackBar(content: Text(error.message ?? 'Error de autenticación.')),
+                      SnackBar(
+                          content:
+                              Text(error.message ?? 'Error de autenticación.')),
                     );
                   }
                 } catch (error) {
                   if (context.mounted) {
                     ScaffoldMessenger.of(context).showSnackBar(
-                      SnackBar(content: Text('No se pudo iniciar sesión: $error')),
+                      SnackBar(
+                          content: Text('No se pudo iniciar sesión: $error')),
                     );
                   }
                 }
@@ -392,7 +528,8 @@ class _DashboardPageState extends State<DashboardPage> {
 
   void _showMessage(String message) {
     if (!mounted) return;
-    ScaffoldMessenger.of(context).showSnackBar(SnackBar(content: Text(message)));
+    ScaffoldMessenger.of(context)
+        .showSnackBar(SnackBar(content: Text(message)));
   }
 
   @override
@@ -403,14 +540,26 @@ class _DashboardPageState extends State<DashboardPage> {
     );
     final now = DateTime.now();
     final weekExpenses = _snapshot.expenses
-        .where((item) => item.date.isAfter(now.subtract(const Duration(days: 7))))
+        .where(
+            (item) => item.date.isAfter(now.subtract(const Duration(days: 7))))
         .toList();
-    final weeklySpent = weekExpenses.fold<double>(0, (sum, item) => sum + item.amount);
+    final weeklySpent =
+        weekExpenses.fold<double>(0, (sum, item) => sum + item.amount);
     final categoryNames = {for (final item in _categories) item.id: item};
-    final totalSpent = _snapshot.expenses.fold<double>(0, (sum, item) => sum + item.amount);
+    final categoryBudgets = _snapshot.budgets.where(
+        (budget) => budget.period == 'weekly' && budget.categoryId != null);
+    final totalSpent =
+        _snapshot.expenses.fold<double>(0, (sum, item) => sum + item.amount);
+    final visibleExpenses = filterExpenses(
+      _snapshot.expenses,
+      now: now,
+      currentMonthOnly: _expensePeriod == 'month',
+      query: _expenseQuery,
+    );
     return Scaffold(
       appBar: AppBar(
-        title: const Text('Mis gastos', style: TextStyle(fontWeight: FontWeight.w800)),
+        title: const Text('Mis gastos',
+            style: TextStyle(fontWeight: FontWeight.w800)),
         actions: [
           if (_syncing)
             const Padding(
@@ -425,7 +574,9 @@ class _DashboardPageState extends State<DashboardPage> {
           IconButton(
             tooltip: _user == null ? 'Iniciar sesión' : 'Cerrar sesión',
             onPressed: _showAccountDialog,
-            icon: Icon(_user == null ? Icons.cloud_outlined : Icons.cloud_done_outlined),
+            icon: Icon(_user == null
+                ? Icons.cloud_outlined
+                : Icons.cloud_done_outlined),
           ),
         ],
       ),
@@ -439,7 +590,7 @@ class _DashboardPageState extends State<DashboardPage> {
           : _error != null && _snapshot.expenses.isEmpty && _categories.isEmpty
               ? Center(child: Text(_error!))
               : RefreshIndicator(
-                  onRefresh: _load,
+                  onRefresh: _refreshData,
                   child: ListView(
                     padding: const EdgeInsets.fromLTRB(20, 8, 20, 100),
                     children: [
@@ -452,43 +603,97 @@ class _DashboardPageState extends State<DashboardPage> {
                         ),
                         const SizedBox(height: 14),
                       ],
-                      _SummaryCard(total: totalSpent, count: _snapshot.expenses.length),
+                      _SummaryCard(
+                          total: totalSpent, count: _snapshot.expenses.length),
                       const SizedBox(height: 16),
                       _BudgetCard(
+                        label: 'Presupuesto semanal',
                         spent: weeklySpent,
                         budget: weeklyBudget.amount,
                         onEdit: _showBudgetForm,
                       ),
+                      ...categoryBudgets.map((budget) {
+                        final category = categoryNames[budget.categoryId];
+                        final spent = weekExpenses
+                            .where((expense) =>
+                                expense.categoryId == budget.categoryId)
+                            .fold<double>(
+                                0, (total, expense) => total + expense.amount);
+                        return _BudgetCard(
+                          label:
+                              'Presupuesto · ${category?.name ?? 'Categoría'}',
+                          spent: spent,
+                          budget: budget.amount,
+                          onEdit: _showBudgetForm,
+                        );
+                      }),
                       const SizedBox(height: 24),
                       Row(
                         children: [
                           const Expanded(
                             child: Text(
                               'Por categoría',
-                              style: TextStyle(fontSize: 18, fontWeight: FontWeight.w800),
+                              style: TextStyle(
+                                  fontSize: 18, fontWeight: FontWeight.w800),
                             ),
                           ),
                           Text('${_snapshot.expenses.length} gastos'),
                         ],
                       ),
                       const SizedBox(height: 8),
-                      _CategoryChart(expenses: _snapshot.expenses, categories: categoryNames),
+                      _CategoryChart(
+                          expenses: _snapshot.expenses,
+                          categories: categoryNames),
                       const SizedBox(height: 24),
                       const Text(
                         'Movimientos recientes',
-                        style: TextStyle(fontSize: 18, fontWeight: FontWeight.w800),
+                        style: TextStyle(
+                            fontSize: 18, fontWeight: FontWeight.w800),
                       ),
                       const SizedBox(height: 8),
-                      if (_snapshot.expenses.isEmpty)
-                        const _EmptyState()
+                      Row(
+                        children: [
+                          const Text('Periodo:'),
+                          const SizedBox(width: 8),
+                          DropdownButton<String>(
+                            value: _expensePeriod,
+                            items: const [
+                              DropdownMenuItem(
+                                  value: 'all', child: Text('Todos')),
+                              DropdownMenuItem(
+                                  value: 'month', child: Text('Este mes')),
+                            ],
+                            onChanged: (value) {
+                              if (value != null) {
+                                setState(() => _expensePeriod = value);
+                              }
+                            },
+                          ),
+                        ],
+                      ),
+                      TextField(
+                        decoration: const InputDecoration(
+                          hintText: 'Buscar gasto',
+                          prefixIcon: Icon(Icons.search),
+                        ),
+                        onChanged: (value) =>
+                            setState(() => _expenseQuery = value),
+                      ),
+                      const SizedBox(height: 8),
+                      if (visibleExpenses.isEmpty)
+                        _EmptyState(
+                          message: _snapshot.expenses.isEmpty
+                              ? 'Aún no hay gastos. Registra uno para empezar a organizarte.'
+                              : 'No hay gastos que coincidan con esta búsqueda y periodo.',
+                        )
                       else
-                        ..._snapshot.expenses.map((expense) {
+                        ...visibleExpenses.map((expense) {
                           final category = categoryNames[expense.categoryId];
                           return _ExpenseTile(
                             expense: expense,
                             category: category,
                             onEdit: () => _showExpenseForm(expense),
-                            onDelete: () => _deleteExpense(expense),
+                            onDelete: () => _confirmDeleteExpense(expense),
                           );
                         }),
                     ],
@@ -514,7 +719,8 @@ class _SummaryCard extends StatelessWidget {
         child: Column(
           crossAxisAlignment: CrossAxisAlignment.start,
           children: [
-            const Text('Gasto registrado', style: TextStyle(color: Colors.white70)),
+            const Text('Gasto registrado',
+                style: TextStyle(color: Colors.white70)),
             const SizedBox(height: 8),
             Text(
               _currency.format(total),
@@ -525,7 +731,8 @@ class _SummaryCard extends StatelessWidget {
               ),
             ),
             const SizedBox(height: 16),
-            Text('$count movimientos', style: const TextStyle(color: Colors.white70)),
+            Text('$count movimientos',
+                style: const TextStyle(color: Colors.white70)),
           ],
         ),
       );
@@ -533,18 +740,21 @@ class _SummaryCard extends StatelessWidget {
 
 class _BudgetCard extends StatelessWidget {
   const _BudgetCard({
+    required this.label,
     required this.spent,
     required this.budget,
     required this.onEdit,
   });
 
+  final String label;
   final double spent;
   final double budget;
   final VoidCallback onEdit;
 
   @override
   Widget build(BuildContext context) {
-    final ratio = budget > 0 ? (spent / budget).clamp(0.0, 1.0).toDouble() : 0.0;
+    final ratio =
+        budget > 0 ? (spent / budget).clamp(0.0, 1.0).toDouble() : 0.0;
     final exceeded = budget > 0 && spent >= budget;
     return Card(
       color: Colors.white,
@@ -555,9 +765,9 @@ class _BudgetCard extends StatelessWidget {
           children: [
             Row(
               children: [
-                const Expanded(
-                  child: Text('Presupuesto semanal',
-                      style: TextStyle(fontWeight: FontWeight.w700)),
+                Expanded(
+                  child: Text(label,
+                      style: const TextStyle(fontWeight: FontWeight.w700)),
                 ),
                 IconButton(
                   tooltip: 'Editar presupuesto',
@@ -569,7 +779,8 @@ class _BudgetCard extends StatelessWidget {
             if (budget == 0)
               const Align(
                 alignment: Alignment.centerLeft,
-                child: Text('Define un límite y recibe un aviso al llegar al 80%.'),
+                child: Text(
+                    'Define un límite y recibe un aviso al llegar al 80%.'),
               )
             else ...[
               LinearProgressIndicator(
@@ -704,16 +915,18 @@ class _ExpenseTile extends StatelessWidget {
         margin: const EdgeInsets.symmetric(vertical: 4),
         child: ListTile(
           leading: CircleAvatar(
-            backgroundColor: Color(category?.colorValue ?? 0xff64748b).withValues(alpha: .12),
+            backgroundColor: Color(category?.colorValue ?? 0xff64748b)
+                .withValues(alpha: .12),
             child: Icon(
               _categoryIcon(category?.id),
               color: Color(category?.colorValue ?? 0xff64748b),
             ),
           ),
-          title: Text(expense.title, maxLines: 1, overflow: TextOverflow.ellipsis),
+          title:
+              Text(expense.title, maxLines: 1, overflow: TextOverflow.ellipsis),
           subtitle: Text(
             '${category?.name ?? 'Otros'} · ${DateFormat('d MMM', 'es_MX').format(expense.date)}'
-                '${expense.receiptPath == null ? '' : ' · Ticket adjunto'}',
+            '${expense.receiptPath == null ? '' : ' · Ticket adjunto'}',
           ),
           trailing: PopupMenuButton<String>(
             onSelected: (value) {
@@ -731,15 +944,17 @@ class _ExpenseTile extends StatelessWidget {
 }
 
 class _EmptyState extends StatelessWidget {
-  const _EmptyState();
+  const _EmptyState({required this.message});
+
+  final String message;
 
   @override
-  Widget build(BuildContext context) => const Card(
+  Widget build(BuildContext context) => Card(
         color: Colors.white,
         elevation: 0,
         child: Padding(
-          padding: EdgeInsets.all(22),
-          child: Text('Aún no hay gastos. Registra uno para empezar a organizarte.'),
+          padding: const EdgeInsets.all(22),
+          child: Text(message),
         ),
       );
 }
@@ -892,7 +1107,8 @@ class _ExpenseFormState extends State<ExpenseForm> {
 
   @override
   Widget build(BuildContext context) => Padding(
-        padding: EdgeInsets.fromLTRB(20, 18, 20, 20 + MediaQuery.viewInsetsOf(context).bottom),
+        padding: EdgeInsets.fromLTRB(
+            20, 18, 20, 20 + MediaQuery.viewInsetsOf(context).bottom),
         child: SingleChildScrollView(
           child: Form(
             key: _key,
@@ -901,7 +1117,8 @@ class _ExpenseFormState extends State<ExpenseForm> {
               children: [
                 Text(
                   widget.initial == null ? 'Nuevo gasto' : 'Editar gasto',
-                  style: const TextStyle(fontSize: 22, fontWeight: FontWeight.w800),
+                  style: const TextStyle(
+                      fontSize: 22, fontWeight: FontWeight.w800),
                 ),
                 const SizedBox(height: 18),
                 TextFormField(
@@ -913,8 +1130,10 @@ class _ExpenseFormState extends State<ExpenseForm> {
                 const SizedBox(height: 10),
                 TextFormField(
                   controller: _amount,
-                  decoration: const InputDecoration(labelText: 'Importe', prefixText: '\$ '),
-                  keyboardType: const TextInputType.numberWithOptions(decimal: true),
+                  decoration: const InputDecoration(
+                      labelText: 'Importe', prefixText: '\$ '),
+                  keyboardType:
+                      const TextInputType.numberWithOptions(decimal: true),
                   validator: (value) {
                     try {
                       parseExpenseAmount(value ?? '');
@@ -941,11 +1160,13 @@ class _ExpenseFormState extends State<ExpenseForm> {
                 const SizedBox(height: 14),
                 TextFormField(
                   controller: _notes,
-                  decoration: const InputDecoration(labelText: 'Notas (opcional)'),
+                  decoration:
+                      const InputDecoration(labelText: 'Notas (opcional)'),
                   maxLength: 300,
                   maxLines: 2,
-                  validator: (value) =>
-                      (value?.length ?? 0) > 300 ? 'Usa 300 caracteres o menos.' : null,
+                  validator: (value) => (value?.length ?? 0) > 300
+                      ? 'Usa 300 caracteres o menos.'
+                      : null,
                 ),
                 OutlinedButton.icon(
                   onPressed: _selectDate,
