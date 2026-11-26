@@ -84,3 +84,5 @@ Pull requests:
 Los cambios están publicados en sus ramas y los PR permanecen abiertos; no se han mezclado automáticamente.
 
 El reporte técnico en Markdown —con diagrama de clases, modelo de datos y mecanismos de seguridad— está en [`docs/reporte-tecnico.md`](./docs/reporte-tecnico.md).
+
+Para empaquetar iOS, preparar la ficha de tienda y revisar clasificación de edad, consulta la [guía de publicación en App Store](./docs/guia-publicacion-appstore.md).
